@@ -1,0 +1,204 @@
+/* Finding cards animations and styling */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Progress bar animations */
+.progress-bar {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover effects for finding cards */
+.finding-card {
+  transition: all 0.2s ease-in-out;
+  margin-bottom: 0.5rem;
+}
+
+.finding-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.4);
+}
+
+/* Enhanced styling for finding card headers */
+.finding-card-header {
+  background: rgba(31, 41, 55, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Better text spacing and readability */
+.finding-text {
+  line-height: 1.6;
+  word-spacing: 0.05em;
+}
+
+.finding-description {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Improved metadata styling */
+.finding-metadata {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+/* Scroll snap for complete card visibility */
+.findings-scroll-container {
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+}
+
+.finding-card {
+  scroll-snap-align: start;
+  scroll-margin-top: 1rem;
+}
+
+/* Enhanced scrollbar styling */
+.findings-scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.findings-scroll-container::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.3);
+  border-radius: 4px;
+}
+
+.findings-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.findings-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Loading screen animations */
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(34, 211, 238, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.6), 0 0 30px rgba(34, 211, 238, 0.4);
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Reverse spin animation for analysis loading */
+.animate-reverse {
+  animation-direction: reverse;
+}
+
+/* Enhanced glow for progress bars */
+@keyframes progress-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(34, 211, 238, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.8), 0 0 25px rgba(34, 211, 238, 0.4);
+  }
+}
+
+/* Brain wave animation */
+@keyframes brain-wave {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.5);
+  }
+}
+
+.animate-brain-wave {
+  animation: brain-wave 1s ease-in-out infinite;
+}
