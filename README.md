@@ -7,6 +7,11 @@ A powerful web application for analyzing digital documents to detect signs of ta
 - **AI-Powered Analysis**: Utilizes state-of-the-art AI models (Google Gemini, OpenAI GPT-5/4o, Azure OpenAI, AWS Bedrock) for comprehensive document forensics
   - **High Accuracy Recommendation**: For the best results, use the OpenAI o3 model, which provides advanced reasoning and superior multimodal analysis for detecting tampering with higher precision.
 - **Multi-Provider Support**: Flexible configuration to use different AI providers based on your needs
+- **Flexible API Key Management**: 
+  - Runtime API key configuration directly in the UI
+  - Secure local storage with obfuscation
+  - Environment variable fallback support
+  - Real-time API key validation
 - **Detailed Findings**: Provides structured analysis reports with confidence scores, severity levels, and specific artifact detection
 - **Model Configuration**: Easy-to-use interface for selecting and configuring AI models and parameters
 - **Real-Time Processing**: Fast analysis with support for various document types and formats
@@ -39,16 +44,18 @@ A powerful web application for analyzing digital documents to detect signs of ta
    npm install
    ```
 
-3. **Environment Configuration**
-   - Copy the example environment file:
-     ```bash
-     cp .env.example .env
-     ```
-   - Edit `.env` and fill in your API keys:
-     - For Google Gemini: Set `VITE_GOOGLE_API_KEY`
-     - For OpenAI: Set `VITE_OPENAI_API_KEY` and optionally `VITE_OPENAI_MODEL`
-     - For Azure OpenAI: Set `VITE_AZURE_OPENAI_API_KEY`, `VITE_AZURE_OPENAI_ENDPOINT`, and `VITE_AZURE_OPENAI_DEPLOYMENT`
-     - For AWS Bedrock: Set `VITE_BEDROCK_PROXY_URL` (requires a server-side proxy)
+3. **Environment Configuration (Optional)**
+   - **Option A: Runtime API Key Configuration (Recommended)**: You can provide API keys directly in the application's model configuration page without setting environment variables.
+   - **Option B: Environment Variables**: For automated deployments or shared configurations:
+     - Copy the example environment file:
+       ```bash
+       cp .env.example .env
+       ```
+     - Edit `.env` and fill in your API keys:
+       - For Google Gemini: Set `VITE_GOOGLE_API_KEY`
+       - For OpenAI: Set `VITE_OPENAI_API_KEY` and optionally `VITE_OPENAI_MODEL`
+       - For Azure OpenAI: Set `VITE_AZURE_OPENAI_API_KEY`, `VITE_AZURE_OPENAI_ENDPOINT`, and `VITE_AZURE_OPENAI_DEPLOYMENT`
+       - For AWS Bedrock: Set `VITE_BEDROCK_PROXY_URL` (requires a server-side proxy)
 
 4. **Start the Development Server**
    ```bash
@@ -59,9 +66,21 @@ A powerful web application for analyzing digital documents to detect signs of ta
 ## Usage
 
 1. **Upload a Document**: Use the file upload interface to select an image of the document you want to analyze
-2. **Configure AI Model** (Optional): Go to the model configuration page to select your preferred AI provider and model
+2. **Configure AI Model** (Optional): Go to the model configuration page to:
+   - Select your preferred AI provider and model
+   - **Provide API Keys**: Optionally enter your API keys directly in the interface with the "Show API Keys" toggle
+   - Configure model parameters for fine-tuning
 3. **Run Analysis**: Click the analyze button to start the forensic examination
 4. **Review Results**: View detailed findings, including confidence scores, specific artifacts detected, and recommendations
+
+### API Key Management
+
+The application offers flexible API key management:
+- **Runtime Configuration**: Provide API keys directly in the model configuration interface
+- **Secure Storage**: API keys are stored locally with basic obfuscation for security
+- **Environment Fallback**: If no API key is provided in the interface, the system falls back to environment variables
+- **Validation**: Real-time validation ensures API keys are in the correct format
+- **Provider Status**: View the current status of environment variables and user-provided keys
 
 ## AI Providers and Models
 

@@ -7,6 +7,17 @@ import { LoadingScreen } from './LoadingScreen';
 import { ModelConfig, Provider } from '../types';
 import { ModelParameterControls } from './ModelParameterControls';
 import { getDefaultParametersForModel, getModelCategory } from '../utils/modelParameterUtils';
+import { 
+  validateApiKey, 
+  maskApiKey, 
+  getApiKeyLabel, 
+  getApiKeyPlaceholder, 
+  getApiKeyDescription,
+  isApiKeyAvailable,
+  storeApiKeys,
+  retrieveApiKeys,
+  clearApiKeys
+} from '../utils/apiKeyUtils';
 
 const PROVIDER_CONFIGS = {
   google: {
@@ -103,16 +114,19 @@ export const ModelConfiguration: React.FC = () => {
   const navigate = useNavigate();
   const [config, setConfig] = useState<ModelConfig>({
     provider: 'openai',
-    model: 'gpt-5',
+    model: 'gpt-4o-mini',
     azureDeployment: '',
-    parameters: undefined
+    parameters: undefined,
+    apiKeys: {}
   });
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showApiKeys, setShowApiKeys] = useState(false);
 
   useEffect(() => {
     // Simulate loading and load saved configuration
     const loadConfig = async () => {
+      // Load model configuration
       const savedConfig = localStorage.getItem('tamperCheck_modelConfig');
       if (savedConfig) {
         try {
@@ -121,6 +135,20 @@ export const ModelConfiguration: React.FC = () => {
         } catch (error) {
           console.error('Error loading saved configuration:', error);
         }
+      }
+      
+      // Load API keys separately
+      const savedApiKeys = retrieveApiKeys();
+      if (Object.keys(savedApiKeys).length > 0) {
+        setConfig(prev => ({
+          ...prev,
+          apiKeys: {
+            google: savedApiKeys.google || '',
+            openai: savedApiKeys.openai || '',
+            azureOpenai: savedApiKeys.azureOpenai || '',
+            bedrockProxy: savedApiKeys.bedrockProxy || ''
+          }
+        }));
       }
       
       // Show loading screen for better UX
@@ -158,7 +186,24 @@ export const ModelConfiguration: React.FC = () => {
   };
 
   const handleSave = () => {
-    localStorage.setItem('tamperCheck_modelConfig', JSON.stringify(config));
+    // Save model configuration (excluding API keys)
+    const { apiKeys, ...configWithoutKeys } = config;
+    localStorage.setItem('tamperCheck_modelConfig', JSON.stringify(configWithoutKeys));
+    
+    // Save API keys separately with obfuscation
+    if (apiKeys) {
+      const keysToStore = Object.entries(apiKeys).reduce((acc, [key, value]) => {
+        if (value && value.trim().length > 0) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      
+      if (Object.keys(keysToStore).length > 0) {
+        storeApiKeys(keysToStore);
+      }
+    }
+    
     setIsSaved(true);
     
     // Show saved message briefly, then navigate back
@@ -170,6 +215,44 @@ export const ModelConfiguration: React.FC = () => {
 
   const handleBack = () => {
     navigate('/');
+  };
+
+  const handleApiKeyChange = (provider: Provider, value: string) => {
+    setConfig(prev => ({
+      ...prev,
+      apiKeys: {
+        ...prev.apiKeys,
+        [provider === 'azure-openai' ? 'azureOpenai' : provider === 'bedrock-openai' ? 'bedrockProxy' : provider]: value
+      }
+    }));
+  };
+
+  const getApiKeyForProvider = (provider: Provider): string => {
+    if (!config.apiKeys) return '';
+    
+    switch (provider) {
+      case 'google':
+        return config.apiKeys.google || '';
+      case 'openai':
+        return config.apiKeys.openai || '';
+      case 'azure-openai':
+        return config.apiKeys.azureOpenai || '';
+      case 'bedrock-openai':
+        return config.apiKeys.bedrockProxy || '';
+      default:
+        return '';
+    }
+  };
+
+  const handleClearApiKeys = () => {
+    // Clear API keys from storage
+    clearApiKeys();
+    
+    // Clear API keys from current config state
+    setConfig(prev => ({
+      ...prev,
+      apiKeys: {}
+    }));
   };
 
   const currentProviderConfig = PROVIDER_CONFIGS[config.provider as keyof typeof PROVIDER_CONFIGS];
@@ -336,6 +419,113 @@ export const ModelConfiguration: React.FC = () => {
               </div>
             )}
 
+            {/* API Key Configuration (Optional) */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-200">
+                  API Key Configuration (Optional)
+                </h3>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowApiKeys(!showApiKeys)}
+                    className="text-sm text-cyan-400 hover:text-cyan-300 transition flex items-center space-x-1"
+                  >
+                    <span>{showApiKeys ? 'Hide' : 'Show'} API Keys</span>
+                    <span className={`transform transition-transform ${showApiKeys ? 'rotate-180' : ''}`}>▼</span>
+                  </button>
+                  
+                  {Object.values(config.apiKeys || {}).some(key => key && key.trim().length > 0) && (
+                    <button
+                      onClick={handleClearApiKeys}
+                      className="text-sm text-red-400 hover:text-red-300 transition flex items-center space-x-1"
+                      title="Clear all saved API keys"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Clear API Keys</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {showApiKeys && (
+                <div className="bg-gray-700 rounded-lg p-4 space-y-4">
+                  <p className="text-sm text-gray-300 mb-4">
+                    Provide your own API keys to override environment variables. 
+                    API keys are stored locally with basic obfuscation for security.
+                  </p>
+                  
+                  {/* Current Provider API Key */}
+                  <div className="space-y-3">
+                    <div className="p-3 bg-gray-600 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-300">
+                          {getApiKeyLabel(config.provider)} {isApiKeyAvailable(config.provider, getApiKeyForProvider(config.provider)) ? '✅' : '❌'}
+                        </label>
+                        {getApiKeyForProvider(config.provider) && (
+                          <span className="text-xs text-gray-400">
+                            {maskApiKey(getApiKeyForProvider(config.provider))}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="password"
+                        value={getApiKeyForProvider(config.provider)}
+                        onChange={(e) => handleApiKeyChange(config.provider, e.target.value)}
+                        placeholder={getApiKeyPlaceholder(config.provider)}
+                        className={`w-full bg-gray-700 border rounded-lg p-3 text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 transition ${
+                          getApiKeyForProvider(config.provider) && !validateApiKey(config.provider, getApiKeyForProvider(config.provider))
+                            ? 'border-red-500 focus:border-red-500'
+                            : 'border-gray-500 focus:border-cyan-500'
+                        }`}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        {getApiKeyDescription(config.provider)}
+                      </p>
+                      {getApiKeyForProvider(config.provider) && !validateApiKey(config.provider, getApiKeyForProvider(config.provider)) && (
+                        <p className="text-xs text-red-400 mt-1">
+                          ⚠️ Invalid API key format
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Environment Variable Fallback Status */}
+                    <div className="p-3 bg-gray-800 rounded-lg border border-gray-600">
+                      <h4 className="text-sm font-medium text-gray-300 mb-2">Environment Variable Status</h4>
+                      <div className="space-y-1 text-xs">
+                        {config.provider === 'google' && (
+                          <p className={import.meta.env.VITE_GOOGLE_API_KEY ? 'text-green-400' : 'text-red-400'}>
+                            VITE_GOOGLE_API_KEY: {import.meta.env.VITE_GOOGLE_API_KEY ? '✅ Set' : '❌ Not Set'}
+                          </p>
+                        )}
+                        {config.provider === 'openai' && (
+                          <p className={import.meta.env.VITE_OPENAI_API_KEY ? 'text-green-400' : 'text-red-400'}>
+                            VITE_OPENAI_API_KEY: {import.meta.env.VITE_OPENAI_API_KEY ? '✅ Set' : '❌ Not Set'}
+                          </p>
+                        )}
+                        {config.provider === 'azure-openai' && (
+                          <>
+                            <p className={import.meta.env.VITE_AZURE_OPENAI_API_KEY ? 'text-green-400' : 'text-red-400'}>
+                              VITE_AZURE_OPENAI_API_KEY: {import.meta.env.VITE_AZURE_OPENAI_API_KEY ? '✅ Set' : '❌ Not Set'}
+                            </p>
+                            <p className={import.meta.env.VITE_AZURE_OPENAI_ENDPOINT ? 'text-green-400' : 'text-red-400'}>
+                              VITE_AZURE_OPENAI_ENDPOINT: {import.meta.env.VITE_AZURE_OPENAI_ENDPOINT ? '✅ Set' : '❌ Not Set'}
+                            </p>
+                          </>
+                        )}
+                        {config.provider === 'bedrock-openai' && (
+                          <p className={import.meta.env.VITE_BEDROCK_PROXY_URL ? 'text-green-400' : 'text-red-400'}>
+                            VITE_BEDROCK_PROXY_URL: {import.meta.env.VITE_BEDROCK_PROXY_URL ? '✅ Set' : '❌ Not Set'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Model Parameters (only for OpenAI models) */}
             {['openai', 'azure-openai', 'bedrock-openai'].includes(config.provider) && config.parameters && (
               <div className="mb-8">
@@ -398,9 +588,10 @@ export const ModelConfiguration: React.FC = () => {
 
             {/* Environment Variables Notice */}
             <div className="mb-8 p-4 bg-amber-900/20 border border-amber-600/30 rounded-lg">
-              <h3 className="text-lg font-semibold text-amber-400 mb-2">Environment Setup Required</h3>
+              <h3 className="text-lg font-semibold text-amber-400 mb-2">API Configuration</h3>
               <p className="text-sm text-gray-300 mb-3">
-                Ensure you have the required environment variables configured for your selected provider:
+                You can either provide API keys in the configuration above or set environment variables. 
+                If both are provided, user-provided API keys take precedence:
               </p>
               <div className="bg-gray-800 p-3 rounded text-xs font-mono text-gray-300">
                 {config.provider === 'google' && (
