@@ -57,7 +57,7 @@ export const DEFAULT_PARAMETERS = {
     temperature: 0.1, // Not actually used by API, but kept for interface compatibility
     maxOutputTokens: 4000,
     reasoningEffort: 'medium' as const,
-    reasoningStrategy: 'default' as const
+    reasoningStrategy: 'default' as const // Kept for UI, but not sent to API
   } as ReasoningModelParameters,
   
   'legacy': {
@@ -254,11 +254,11 @@ export const createAPIParameterConfig = (config: ModelParameterConfig) => {
     case 'o-series':
       const reasoningParams = parameters as ReasoningModelParameters;
       return {
-        // O-series models only support these parameters
+        // O-series models only support these parameters based on current API
         max_output_tokens: reasoningParams.maxOutputTokens,
         reasoning: {
-          effort: reasoningParams.reasoningEffort,
-          strategy: reasoningParams.reasoningStrategy
+          effort: reasoningParams.reasoningEffort
+          // Note: strategy parameter not supported in current API
         }
         // Note: temperature, top_p, frequency_penalty, presence_penalty are NOT supported
       };

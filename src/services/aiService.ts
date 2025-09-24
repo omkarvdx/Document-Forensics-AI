@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { AnalysisResult } from '../types';
 import { getModelType, createAPIParameterConfig } from '../utils/modelParameterUtils';
+import { getEffectiveApiKey } from '../utils/apiKeyUtils';
 
 type Provider = 'google' | 'azure-openai' | 'openai' | 'bedrock-openai';
 type AnalyzeOptions = {
@@ -8,6 +9,12 @@ type AnalyzeOptions = {
     model?: string; // google/openai model name; for azure, use azureDeployment instead
     azureDeployment?: string; // optional override for Azure deployment name
     parameters?: any; // Add parameters support
+    apiKeys?: {
+        google?: string;
+        openai?: string;
+        azureOpenai?: string;
+        bedrockProxy?: string;
+    };
 };
 
 const PROVIDER = (import.meta.env.VITE_AI_PROVIDER as Provider) || 'google';
@@ -487,31 +494,20 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 	const prompt = buildPrompt(userContext);
 	const resolvedProvider: Provider = (options?.provider as Provider) || PROVIDER;
 	
-	// Load saved model configuration if not provided in options
-	let modelConfig = options;
-	if (!modelConfig && typeof window !== 'undefined') {
-		const savedConfig = localStorage.getItem('tamperCheck_modelConfig');
-		if (savedConfig) {
-			try {
-				const parsedConfig = JSON.parse(savedConfig);
-				modelConfig = {
-					provider: parsedConfig.provider,
-					model: parsedConfig.model,
-					azureDeployment: parsedConfig.azureDeployment,
-					parameters: parsedConfig.parameters
-				};
-			} catch (error) {
-				console.warn('Error loading model config from localStorage:', error);
-			}
-		}
-	}
+	// Use provided options directly (they should contain API keys from useModelConfig)
+	const modelConfig = options;
 
 	if (resolvedProvider === 'google') {
-		if (!ai) throw new Error("VITE_GOOGLE_API_KEY is not set");
+		// Get effective API key (user-provided or environment)
+		const effectiveApiKey = getEffectiveApiKey('google', modelConfig?.apiKeys?.google);
+		if (!effectiveApiKey) throw new Error("Google API key is not set. Please provide it in the configuration or set VITE_GOOGLE_API_KEY environment variable.");
+		
+		// Use the effective API key to create GoogleGenAI instance
+		const googleAI = new GoogleGenAI({ apiKey: effectiveApiKey });
 		const imagePart = await fileToGenerativePart(file);
 		const model = options?.model || 'gemini-2.0-flash-exp';
 		try {
-			const response = await ai.models.generateContent({
+			const response = await googleAI.models.generateContent({
 				model,
 				contents: { parts: [ { text: prompt }, imagePart ] },
 				config: {
@@ -533,32 +529,51 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 	}
 
 	if (resolvedProvider === 'openai') {
-		if (!OPENAI_API_KEY) throw new Error("VITE_OPENAI_API_KEY is not set");
+		// Get effective API key (user-provided or environment)
+		const effectiveApiKey = getEffectiveApiKey('openai', modelConfig?.apiKeys?.openai);
+		if (!effectiveApiKey) throw new Error("OpenAI API key is not set. Please provide it in the configuration or set VITE_OPENAI_API_KEY environment variable.");
 		const dataUrl = await fileToBase64DataUrl(file);
 		const model = modelConfig?.model || (import.meta.env.VITE_OPENAI_MODEL as string | undefined) || 'gpt-4o-mini';
 		const modelType = getModelType(model);
 		
-		// Get API parameters from config or use defaults
+		// Use appropriate parameters based on actual model
 		let apiParams: any = {};
-		if (modelConfig?.parameters) {
-			apiParams = createAPIParameterConfig(modelConfig.parameters);
+		
+		// Handle different model types with correct parameters
+		if (model === 'o3' || model === 'o1' || model === 'o1-mini' || modelType === 'o-series') {
+			// O-series and reasoning models use max_completion_tokens
+			apiParams = {
+				max_completion_tokens: 4000,
+				// Note: o3 and similar models don't support temperature, top_p, etc.
+			};
+		} else if (model.startsWith('gpt-5') || model.includes('4.1')) {
+			// GPT-5 series models use max_completion_tokens
+			apiParams = {
+				max_completion_tokens: 4000,
+				temperature: 0.1,
+				top_p: 1.0,
+				frequency_penalty: 0,
+				presence_penalty: 0
+			};
 		} else {
-			// Fallback to legacy parameters based on model type
-			if (modelType === 'gpt-5') {
-				apiParams = { max_completion_tokens: 4000, temperature: 0.1 };
-			} else if (modelType === 'o-series') {
-				// O-series models don't support temperature or other sampling parameters
-				apiParams = { max_output_tokens: 4000, reasoning: { effort: 'medium' } };
-			} else {
-				apiParams = { max_tokens: 4000, temperature: 0.1 };
-			}
+			// Standard GPT-4o and other models use max_tokens
+			apiParams = {
+				max_tokens: 4000,
+				temperature: 0.1,
+				top_p: 1.0,
+				frequency_penalty: 0,
+				presence_penalty: 0
+			};
 		}
+		
+		
 		
 		try {
 			let text: string;
 			
-			// Use different endpoints based on model type
-			if (modelType === 'o-series') {
+		// Use different endpoints based on model type  
+		// For now, use chat completions for all models with correct parameters
+		if (false) {
 				// Use Responses API for O-series models
 				const body = {
 					model,
@@ -576,7 +591,7 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 				
 				const res = await fetch('https://api.openai.com/v1/responses', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+					headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApiKey}` },
 					body: JSON.stringify(body),
 				});
 				
@@ -621,7 +636,7 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 				
 				const res = await fetch('https://api.openai.com/v1/chat/completions', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+					headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApiKey}` },
 					body: JSON.stringify(body),
 				});
 				
@@ -647,13 +662,29 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 			return validateAndFixResponse(parsed);
 		} catch (error) {
 			console.error("Error calling OpenAI API for analysis:", error);
+			
+			// Provide more specific error messages
+			if (error instanceof Error) {
+				if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+					throw new Error("Invalid API key. Please check your OpenAI API key in the configuration.");
+				} else if (error.message.includes('429') || error.message.includes('rate limit')) {
+					throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+				} else if (error.message.includes('400') || error.message.includes('Bad Request')) {
+					throw new Error("Invalid request format. This might be a model compatibility issue.");
+				} else if (error.message.includes('network') || error.message.includes('fetch')) {
+					throw new Error("Network error. Please check your internet connection and try again.");
+				}
+			}
+			
 			throw new Error("The OpenAI model failed to process the document. Please try again.");
 		}
 	}
 
 	if (resolvedProvider === 'azure-openai') {
-		if (!AZURE_OPENAI_API_KEY || !AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_DEPLOYMENT) {
-			throw new Error("Azure OpenAI env vars missing: VITE_AZURE_OPENAI_API_KEY, VITE_AZURE_OPENAI_ENDPOINT, VITE_AZURE_OPENAI_DEPLOYMENT");
+		// Get effective API key (user-provided or environment)
+		const effectiveApiKey = getEffectiveApiKey('azure-openai', modelConfig?.apiKeys?.azureOpenai);
+		if (!effectiveApiKey || !AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_DEPLOYMENT) {
+			throw new Error("Azure OpenAI configuration missing. Please provide API key in configuration or set VITE_AZURE_OPENAI_API_KEY, VITE_AZURE_OPENAI_ENDPOINT, VITE_AZURE_OPENAI_DEPLOYMENT environment variables.");
 		}
 		const dataUrl = await fileToBase64DataUrl(file);
 		const deployment = modelConfig?.azureDeployment || AZURE_OPENAI_DEPLOYMENT!;
@@ -700,7 +731,7 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
-						'api-key': AZURE_OPENAI_API_KEY,
+						'api-key': effectiveApiKey,
 					},
 					body: JSON.stringify(body),
 				});
@@ -749,7 +780,7 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
-						'api-key': AZURE_OPENAI_API_KEY,
+						'api-key': effectiveApiKey,
 					},
 					body: JSON.stringify(body),
 				});
@@ -781,13 +812,15 @@ export const analyzeDocument = async (file: File, userContext: string, options?:
 	}
 
 	if (resolvedProvider === 'bedrock-openai') {
-		if (!BEDROCK_PROXY_URL) {
-			throw new Error("VITE_BEDROCK_PROXY_URL not set. Configure a server-side proxy that signs Bedrock requests.");
+		// Get effective proxy URL (user-provided or environment)
+		const effectiveProxyUrl = getEffectiveApiKey('bedrock-openai', modelConfig?.apiKeys?.bedrockProxy);
+		if (!effectiveProxyUrl) {
+			throw new Error("Bedrock proxy URL is not set. Please provide it in the configuration or set VITE_BEDROCK_PROXY_URL environment variable.");
 		}
 		const dataUrl = await fileToBase64DataUrl(file);
 		
 		try {
-			const res = await fetch(BEDROCK_PROXY_URL, {
+			const res = await fetch(effectiveProxyUrl, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

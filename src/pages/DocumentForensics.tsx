@@ -9,6 +9,7 @@ import { AnalysisLoading } from '../components/AnalysisLoading';
 import { analyzeDocument } from '../services/aiService';
 import { useModelConfig } from '../hooks/useModelConfig';
 import { usePersistedState, usePersistedFileState } from '../hooks/usePersistedState';
+import { clearApiKeys } from '../utils/apiKeyUtils';
 import type { AnalysisResult } from '../types';
 import { ArrowRightIcon } from '../components/icons/ArrowRightIcon';
 import { SettingsIcon } from '../components/icons/SettingsIcon';
@@ -29,7 +30,7 @@ const DocumentForensics: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
-  const { config, isLoaded } = useModelConfig();
+  const { config, setConfig, isLoaded } = useModelConfig();
 
   // Simulate initial loading for better UX
   useEffect(() => {
@@ -46,12 +47,24 @@ const DocumentForensics: React.FC = () => {
   };
 
   const handleClearAll = useCallback(() => {
+    // Clear file data, analysis results, and user context
     clearFileData();
     clearAnalysisResult();
     clearUserContext();
+    
+    // Clear API keys from storage
+    clearApiKeys();
+    
+    // Update config to remove API keys from memory
+    setConfig({
+      ...config,
+      apiKeys: {}
+    });
+    
+    // Clear UI state
     setError(null);
     setIsLoading(false);
-  }, [clearFileData, clearAnalysisResult, clearUserContext]);
+  }, [clearFileData, clearAnalysisResult, clearUserContext, config, setConfig]);
 
   const handleAnalyzeClick = useCallback(async () => {
     if (!selectedFile) {
@@ -73,6 +86,8 @@ const DocumentForensics: React.FC = () => {
         provider: config.provider as any,
         model: config.model || undefined,
         azureDeployment: config.azureDeployment || undefined,
+        parameters: config.parameters,
+        apiKeys: config.apiKeys
       });
       setAnalysisResult(result);
     } catch (err) {
@@ -148,11 +163,12 @@ const DocumentForensics: React.FC = () => {
                     <button
                       onClick={handleClearAll}
                       className="inline-flex items-center space-x-2 text-destructive hover:text-destructive/80 transition-colors duration-200 text-sm"
+                      title="Clear uploaded files, analysis results, user context, and API keys"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                      <span>Clear All</span>
+                      <span>Clear All Data</span>
                     </button>
                   )}
                 </div>

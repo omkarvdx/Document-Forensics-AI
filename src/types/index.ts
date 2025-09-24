@@ -81,6 +81,12 @@ export interface ModelConfig {
   model: string;
   azureDeployment?: string;
   parameters?: ModelParameterConfig;
+  apiKeys?: {
+    google?: string;
+    openai?: string;
+    azureOpenai?: string;
+    bedrockProxy?: string;
+  };
 }
 
 export type ModelType = 'gpt-4o' | 'gpt-5' | 'o-series' | 'legacy';
